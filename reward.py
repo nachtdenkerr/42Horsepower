@@ -1,5 +1,21 @@
 import math
 
+# Add speed-based rewards
+def get_speed_reward(speed, track_direction):
+    if abs(track_direction) < 10.0:  # Straight
+        if speed >= 2.5:
+            return 1.5
+        return 1.0
+    elif abs(track_direction) < 20.0:  # Gentle curve
+        if speed >= 2.0:
+            return 1.3
+        return 1.0
+    else:  # Sharp curve
+        if speed <= 1.5:
+            return 1.2
+        return 0.8
+
+
 def reward_function(params):
 
 	# Read input parameters
@@ -15,12 +31,14 @@ def reward_function(params):
 	# Initialize the reward with typical value
 	reward = 1.0
 
-	# Calculate the distance from each border
+	# Check game ending conditions
+	if params['is_offtrack']:
+		return float(1e-3)
+	
 	distance_from_border = 0.5 * track_width - distance_from_center
 	# Reward higher if the car stays inside the track borders
-	if distance_from_border <= 0.05:
-		reward = 1e-3 # Low reward if too close to the border or goes off the track
-		return float(reward)
+	if distance_from_border <= 0.1:
+		reward *= 0.02 # Low reward if too close to the border
 	
 	# Calculate the direction of the center line based on the closest waypoints
 	next_point = waypoints[closest_waypoints[1]]
@@ -37,8 +55,9 @@ def reward_function(params):
 
 	# Penalize the reward if the difference is too large
 	DIRECTION_THRESHOLD = 10.0
-	if (abs(track_direction) <= 0.1 and abs(heading) <= 0.2 and speed >= 1.8):
+	if abs(track_direction) <= 5.0 and abs(heading) <= 5.0:
 		reward += 1.0
+	reward *= get_speed_reward(speed, track_direction)
 	if direction_diff > DIRECTION_THRESHOLD:
 		reward *= 0.5
 	if (abs(track_direction) >= 15):
@@ -46,11 +65,10 @@ def reward_function(params):
 		if abs_steering < 10 and speed > 2.0:
 			reward += 2.0
 
-	TOTAL_NUM_STEPS = 300
-	if (steps % 100) == 0 and progress > (steps / TOTAL_NUM_STEPS) * 100 :
-		reward += 10.0
-
-	if progress == 1.0:
-		return float(reward * 100.0)
+	bonus = progress / steps * 10.0  # Bonus based on progress
+	reward += bonus
+	
+	completion_bonus = (progress ** 2) * 2  # Exponential reward for progress
+	reward += completion_bonus
 
 	return float(reward)
