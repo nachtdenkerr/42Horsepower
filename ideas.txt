@@ -1,1 +1,5 @@
-- Implement racing ideal line
+https://blog.gofynd.com/how-we-broke-into-the-top-1-of-the-aws-deepracer-virtual-circuit-573ba46c275
+
+https://github.com/dgnzlz/Capstone_AWS_DeepRacer/blob/master/Reward_Function/reward_function.py
+
+https://github.com/SDC-Lab/DeepRacer-Models/blob/main/models/README.md/
