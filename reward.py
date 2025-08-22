@@ -88,61 +88,104 @@ ideal_line =	[[ 3.48527602e+00,  1.39515945e+00],
 				[ 3.68912672e+00,  1.34337537e+00],
 				[ 3.48527602e+00,  1.39515945e+00]]
 
-def get_speed_factor(speed, track_direction):
-    """Returns a factor (0.8–1.5) based on speed and track curvature."""
-    if abs(track_direction) < 10.0:  # Straight
-        return 1.5 if speed >= 2.5 else 1.0
-    elif abs(track_direction) < 20.0:  # Gentle curve
-        return 1.3 if speed >= 2.0 else 1.0
-    else:  # Sharp curve
-        return 1.2 if speed <= 1.5 else 0.8
+prev_track_dir = []
+
+def get_distance_from_ideal_line(x, y, ideal_point_1, ideal_point_2):
+	"""Calculates the distance from the ideal line defined by ideal_line."""
+	vector_ideal = np.array(ideal_point_2) - np.array(ideal_point_1)
+	vector_car = np.array([x, y]) - np.array(ideal_point_1)
+	dot_product = np.dot(vector_car, vector_ideal)
+	parallel_point = np.array(ideal_point_1) + (dot_product / np.dot(vector_ideal, vector_ideal)) * vector_ideal
+	distance = np.linalg.norm(np.array([x, y]) - parallel_point)
+	return distance
 
 def reward_function(params):
-    # --- Read parameters ---
-    speed = params['speed']
-    heading = params['heading']
-    steering = abs(params['steering_angle'])
-    distance_from_center = params['distance_from_center']
-    progress = params['progress']
-    steps = max(params['steps'], 1)  # avoid division by zero
-    waypoints = params['waypoints']
-    closest_waypoints = params['closest_waypoints']
-    track_width = params['track_width']
-    is_offtrack = params['is_offtrack']
+	# --- Read parameters ---
+	speed = params['speed']
+	heading = params['heading']
+	steering = params['steering_angle']
+	distance_from_center = params['distance_from_center']
+	progress = params['progress']
+	steps = max(params['steps'], 1)  # avoid division by zero
+	waypoints = params['waypoints']
+	closest_waypoints = params['closest_waypoints']
+	track_width = params['track_width']
+	is_offtrack = params['is_offtrack']
 
-    # --- Base reward ---
-    if is_offtrack:
-        return 0.1  # tiny reward if off track
-    reward = 20.0  # scale base reward to allow reaching ~100 max
+	# --- Max speed based on action space ---
+	# should be changed according to the updated action space
+	max_speed_straight = 2.5
+	max_speed_soft_corner = 1.8
+	max_speed_sharp_corner = 1.2
 
-    # --- Distance from center factor (smooth penalty) ---
-    distance_factor = 1 - (distance_from_center / (track_width / 2))
-    distance_factor = max(0.1, distance_factor)
-    reward *= distance_factor
+	# --- Base reward ---
+	if is_offtrack:
+		return 1e-3  # tiny reward if off track
 
-    # --- Track direction factor ---
-    next_point = waypoints[closest_waypoints[1]]
-    prev_point = waypoints[closest_waypoints[0]]
-    track_direction = math.degrees(math.atan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0]))
-    direction_diff = abs(track_direction - heading)
-    if direction_diff > 180:
-        direction_diff = 360 - direction_diff
-    direction_factor = 1.0 if direction_diff < 10 else max(0.5, 1 - (direction_diff / 50))
-    reward *= direction_factor
+	reward = 1.0 
 
-    # --- Speed factor ---
-    speed_factor = get_speed_factor(speed, track_direction)
-    reward *= speed_factor
+	prev_point = ideal_line[closest_waypoints[0]]
+	next_point = ideal_line[closest_waypoints[1]]
+	# --- Distance from center factor (smooth penalty) ---
+	distance_from_ideal = get_distance_from_ideal_line(params['x'], params['y'], prev_point, next_point)
+	distance_factor = max(0.0, 1 - 2 * distance_from_ideal / track_width)
 
-    # --- Steering bonus ---
-    if abs(track_direction) >= 15 and steering < 10 and speed > 2.0:
-        reward *= 1.2
+	reward *= (distance_factor + 0.5)
 
-    # --- Progress bonus ---
-    progress_factor = (progress / 100.0) * 15.0  # additive bonus scaled
-    reward += progress_factor
+	track_direction = math.degrees(math.atan2(next_point[1] - prev_point[1], next_point[0] - prev_point[0]))
+	if steps == 1:
+		prev_track_dir.clear()
+		prev_track_dir.append(heading)
+	direction = 1 # Straight 
+	track_dir_diff = track_direction - prev_track_dir[-1]
+	track_dir_diff = (track_dir_diff + 180) % 360 - 180
 
-    # --- Clamp final reward to 100 ---
-    reward = min(reward, 100.0)
+	if (track_dir_diff >= 5.0):
+		direction = 2 # Left 
+	elif (track_dir_diff <= -5.0):
+		direction = 3 #Right
 
-    return float(reward)
+	# --- Heading should be aligned with the track_direction
+	direction_diff = abs(track_direction - heading)
+	if direction_diff > 180:
+		direction_diff = 360 - direction_diff
+	heading_factor = 1.0
+	if direction == 1:
+		heading_factor = max((1 - (direction_diff / 20))**1.2, 0.2)
+	else:
+		heading_factor = max((1 - (direction_diff / 30))**1.2, 0.2)
+	heading_factor *= 1.2
+	reward *= heading_factor 
+
+	# --- Speed factor ---
+	if direction == 1:
+		speed_factor = (speed / max_speed_straight) ** 2.0
+	elif abs(direction_diff) < 20.0:  # Gentle curve
+		speed_factor = (speed / max_speed_soft_corner) ** 1.5
+	else:  # Sharp curve
+		speed_factor = (speed / max_speed_sharp_corner) ** 1.5
+	reward *= speed_factor * 2.0
+
+	# --- Steering bonus ---
+	steering_factor = 0.1
+	if direction == 1:
+		if steering <= 5.0:
+			steering_factor = max((1 - steering / 5.0), 0.5)
+	elif direction == 2:
+		if track_dir_diff <= 15.0 and steering >= 5.0:
+			steering_factor = 1.0
+		if track_dir_diff > 15.0 and steering >= 12.0:
+			steering_factor = 1.0
+	elif direction == 3:
+		if track_dir_diff >= -15.0 and steering <= -5.0:
+			steering_factor = 1.0
+		if track_dir_diff < -15.0 and steering <= -12.0:
+			steering_factor = 1.0
+	reward *= steering_factor * 1.2
+
+	# --- Progress bonus ---
+	progress_factor = (progress / steps) * 2.0  # scales by efficiency
+	reward += progress_factor
+
+	prev_track_dir.append(track_direction)
+	return float(reward)
