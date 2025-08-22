@@ -4,3 +4,83 @@ https://github.com/dgnzlz/Capstone_AWS_DeepRacer/blob/master/Reward_Function/rew
 
 https://github.com/SDC-Lab/DeepRacer-Models/blob/main/models/README.md/
 
+Extra signals to add (and why)
+
+Lookahead alignment
+
+What: Angle between car heading and vector to a lookahead point several waypoints ahead (e.g., +5–10 indices).
+
+Why: Encourages proactive steering toward where the track goes, not only instant centerline. Helps recovery planning.
+
+Compute: lookahead_point = waypoints[(closest_index + L) % N]; lookahead_angle_diff = abs(track_to_lookahead_angle - heading).
+
+Progress-per-step (efficiency)
+
+What: progress / steps or normalized progress gain over recent window.
+
+Why: Encourages finishing quickly rather than safe but dithering. Helps avoid “looping” near borders to collect per-step reward.
+
+Compute: rolling average of (progress_t - progress_{t-k}) / (steps_t - steps_{t-k}).
+
+Steering smoothness / steering-rate penalty
+
+What: abs(steering - previous_steering) or average over few steps.
+
+Why: Penalizes oscillatory zig-zag that prevents recovery and wastes time.
+
+Compute: Δsteer. Large Δsteer → multiply reward down.
+
+Yaw-rate / heading-change consistency
+
+What: Instant yaw-rate dψ/dt or difference between heading and track direction change.
+
+Why: If yaw-rate spikes while far from the line, the agent is unstable. Penalize abrupt heading changes that do not reduce lateral error.
+
+Lateral acceleration estimate (safety check)
+
+What: a_lat ≈ v^2 * curvature (curvature from 3-point osculating circle).
+
+Why: Penalize cases exceeding a safe lateral accel threshold — prevents attempting too tight a turn at high speed.
+
+Compute: use curvature kappa; if a_lat > a_lat_safe multiply reward down.
+
+Time-to-boundary (track boundary margin)
+
+What: Projected distance along the normal from current position to closest border (left/right).
+
+Why: Gives an advanced warning before hitting border; safer than only distance-to-center. Especially useful if ideal line is near border.
+
+Compute: project to left/right segment; normalize to track_half_width.
+
+Recovery-direction incentive
+
+What: If lateral error is increasing, reward actions that reduce lateral error (steer sign matching direction to the line).
+
+Why: Prevents agent from continuing wrong steering while near border. Encourages corrective steering.
+
+Action-usage regularizer
+
+What: Slight penalty for “rare” actions or for repeatedly using max-steer at high speed.
+
+Why: Avoids destabilizing extreme control choices; encourages smooth, repeatable actions.
+
+Episode-stability indicator
+
+What: If progress stalls for N steps, apply penalty.
+
+Why: Prevents agents learning to sit in-place to avoid penalties.
+
+reward = base
+reward *= distance_factor               # 0.5 .. 1.2
+reward *= heading_alignment_factor     # 0.6 .. 1.2
+reward *= lookahead_alignment_factor   # 0.7 .. 1.2
+reward *= speed_factor                 # 0.7 .. 1.4
+reward *= steering_smooth_factor       # 0.6 .. 1.1
+reward *= lateral_accel_factor         # 0.5 .. 1.0
+reward *= boundary_margin_factor       # 0.5 .. 1.0
+# small additive
+reward += progress_bonus               # 0 .. 2.0
+# clamp
+reward = clip(reward, min=1e-3, max=MAX)
+
+calculate turning radius to identify curvature (soft, sharp)
