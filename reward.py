@@ -110,8 +110,9 @@ def	angle_diff_lookahead(params, heading, n_lookahead=7):
 	target_idx = (closest_idx + n_lookahead) % len(params["waypoints"])
 	x_ahead, y_ahead = ideal_line[target_idx]
 	angle_ahead = math.degrees(math.atan2(y_ahead - y, x_ahead - x))
-	angle_ahead = (angle_ahead + 180) % 360 - 180
-	return (angle_ahead - heading)
+	angle_ahead = (angle_ahead + 180.0) % 360.0 - 180.0
+	angle_diff = angle_ahead - heading
+	return ((angle_diff + 180.0) % 360.0 - 180.0)
 
 def reward_function(params):
 	# --- Read parameters ---
@@ -151,20 +152,20 @@ def reward_function(params):
 		prev_track_dir.clear()
 		prev_track_dir.append(heading)
 	track_dir_diff = track_direction - prev_track_dir[-1]
-	track_dir_diff = (track_dir_diff + 180) % 360 - 180
+	track_dir_diff = (track_dir_diff + 180.0) % 360.0 - 180.0
 
 	angle_diff_lookahead = angle_diff_lookahead(params, heading)
-	# if (track_dir_diff >= 5.0):
-	# 	direction = 2 # Left 
-	# elif (track_dir_diff <= -5.0):
-	# 	direction = 3 #Right
+	segment_type = 1
+	if (abs(angle_diff_lookahead) >= 5.0): #will enter a turn, second tier of velocity
+		segment_type = 2
+	elif (abs(angle_diff_lookahead) >= 33.0): # sharper turn, third tier of velocity
+		segment_type = 3
 	
 	# --- Heading should be aligned with the track_direction
 	direction_diff = abs(track_direction - heading)
-	if direction_diff > 180:
-		direction_diff = 360 - direction_diff
+	direction_diff = (direction_diff + 180.0) % 360.0 - 180.0
 	heading_factor = 1.0
-	if direction == 1:
+	if segment_type == 1:
 		heading_factor = max((1 - (direction_diff / 20))**1.2, 0.2)
 	else:
 		heading_factor = max((1 - (direction_diff / 30))**1.2, 0.2)
@@ -172,9 +173,9 @@ def reward_function(params):
 	reward *= heading_factor 
 
 	# --- Speed factor ---
-	if direction == 1:
+	if segment_type == 1:
 		speed_factor = (speed / max_speed_straight) ** 2.0
-	elif abs(direction_diff) < 20.0:  # Gentle curve
+	elif segment_type == 2:  # Gentle curve
 		speed_factor = (speed / max_speed_soft_corner) ** 1.5
 	else:  # Sharp curve
 		speed_factor = (speed / max_speed_sharp_corner) ** 1.5
@@ -182,19 +183,10 @@ def reward_function(params):
 
 	# --- Steering bonus ---
 	steering_factor = 0.1
-	if direction == 1:
-		if steering <= 5.0:
-			steering_factor = max((1 - steering / 5.0), 0.5)
-	elif direction == 2:
-		if track_dir_diff <= 15.0 and steering >= 5.0:
-			steering_factor = 1.0
-		if track_dir_diff > 15.0 and steering >= 12.0:
-			steering_factor = 1.0
-	elif direction == 3:
-		if track_dir_diff >= -15.0 and steering <= -5.0:
-			steering_factor = 1.0
-		if track_dir_diff < -15.0 and steering <= -12.0:
-			steering_factor = 1.0
+	if segment_type == 1:
+		steering_factor = max((1 - abs(steering) / 30.0), 0.1)
+	elif segment_type == 2:
+		#check on rate of steering
 	reward *= steering_factor * 1.2
 
 	# --- Progress bonus ---
