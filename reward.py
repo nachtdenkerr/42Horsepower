@@ -89,6 +89,8 @@ ideal_line =	[[ 3.48816359e+00,  1.42395903e+00],
 				[ 3.48816359e+00,  1.42395903e+00]]
 
 prev_track_dir = []
+prev_steer = []
+prev_delta_steer = []
 
 def compute_direction(next_point, prev_point):
 	x_prev, y_prev = prev_point[0], prev_point[1]
@@ -104,14 +106,18 @@ def get_distance_from_ideal_line(x, y, ideal_point_1, ideal_point_2):
 	distance = np.linalg.norm(np.array([x, y]) - parallel_point)
 	return distance
 
-def	angle_diff_lookahead(params, heading, n_lookahead=7):
+def	angle_diff_lookahead(params, n_lookahead=7):
 	x, y = params["x"], params["y"]
 	closest_idx = params['closest_waypoints'][1]
+	adj_idx = closest_idx + 1
 	target_idx = (closest_idx + n_lookahead) % len(params["waypoints"])
 	x_ahead, y_ahead = ideal_line[target_idx]
 	angle_ahead = math.degrees(math.atan2(y_ahead - y, x_ahead - x))
 	angle_ahead = (angle_ahead + 180.0) % 360.0 - 180.0
-	angle_diff = angle_ahead - heading
+	x_adj, y_adj = ideal_line[adj_idx]
+	angle_adj = math.degrees(math.atan2(y_adj - y, x_adj - x))
+	angle_adj = (angle_adj + 180.0) % 360.0 - 180.0
+	angle_diff = angle_ahead - angle_adj
 	return ((angle_diff + 180.0) % 360.0 - 180.0)
 
 def reward_function(params):
@@ -150,15 +156,19 @@ def reward_function(params):
 	track_direction = compute_direction(next_point, prev_point)
 	if steps == 1:
 		prev_track_dir.clear()
+		prev_steer.clear()
+		prev_delta_steer.clear()
 		prev_track_dir.append(heading)
-	track_dir_diff = track_direction - prev_track_dir[-1]
-	track_dir_diff = (track_dir_diff + 180.0) % 360.0 - 180.0
+		prev_steer.append(steering)
+
+	# track_dir_diff = track_direction - prev_track_dir[-1]
+	# track_dir_diff = (track_dir_diff + 180.0) % 360.0 - 180.0
 
 	angle_diff_lookahead = angle_diff_lookahead(params, heading)
 	segment_type = 1
 	if (abs(angle_diff_lookahead) >= 5.0): #will enter a turn, second tier of velocity
 		segment_type = 2
-	elif (abs(angle_diff_lookahead) >= 33.0): # sharper turn, third tier of velocity
+	elif (abs(angle_diff_lookahead) >= 28.0): # sharper turn, third tier of velocity
 		segment_type = 3
 	
 	# --- Heading should be aligned with the track_direction
@@ -170,7 +180,7 @@ def reward_function(params):
 	else:
 		heading_factor = max((1 - (direction_diff / 30))**1.2, 0.2)
 	heading_factor *= 1.2
-	reward *= heading_factor 
+	reward *= heading_factor
 
 	# --- Speed factor ---
 	if segment_type == 1:
@@ -179,14 +189,27 @@ def reward_function(params):
 		speed_factor = (speed / max_speed_soft_corner) ** 1.5
 	else:  # Sharp curve
 		speed_factor = (speed / max_speed_sharp_corner) ** 1.5
-	reward *= speed_factor * 2.0
+	reward *= max(speed_factor, 0.1) * 1.5
 
 	# --- Steering bonus ---
-	steering_factor = 0.1
 	if segment_type == 1:
 		steering_factor = max((1 - abs(steering) / 30.0), 0.1)
 	elif segment_type == 2:
-		#check on rate of steering
+		if direction_diff <= 10.0:
+			tol = 5.0
+			delta_steer = abs(steering - prev_steer[-1])
+			if (len(prev_delta_steer) > 0):
+				delta_square_steer = abs(delta_steer - prev_delta_steer[-1])
+				s_jerk = max(0.1, 1 - delta_square_steer / (tol - 2))
+			s_rate = max(0.1, 1 - delta_steer / tol)
+	else:
+		if direction_diff <= 17.0:
+			tol = 8.0
+			delta_steer = abs(steering - prev_steer[-1])
+			if (len(prev_delta_steer) > 0):
+				delta_square_steer = abs(delta_steer - prev_delta_steer[-1])
+				s_jerk = max(0.1, 1 - delta_square_steer / (tol - 2))
+			s_rate = max(0.1, 1 - delta_steer / tol)
 	reward *= steering_factor * 1.2
 
 	# --- Progress bonus ---
