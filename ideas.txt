@@ -72,4 +72,18 @@ reward += progress_bonus               # 0 .. 2.0
 # clamp
 reward = clip(reward, min=1e-3, max=MAX)
 
-calculate turning radius to identify curvature (soft, sharp)
+action space:
+17 deg	- 2.25 m/s
+15 deg	- 2.4 m/s
+12.5 deg- 2.5 m/s
+10 deg	- 2.75 m/s
+7.5 deg	- 3.0 m/s
+5 deg	- 3.4 m/s
+2.5 deg	- 3.5 m/s
+0.0 deg	- 4.0 m/s
+0.0 deg	- 3.8 m/s
+0.0 deg - 3.7 m/s
+0.0 deg - 3.6 m/s
+-2.5 deg - 3.7 m/s
+-5 deg	- 3.4 m/s
+-7.5 deg- 3.2 m/s
