@@ -148,23 +148,23 @@ def reward_function(params):
 
 	reward *= distance_factor * 1.5
 
-	track_direction = compute_direction(next_point, prev_point)
-
-	angle_diff_lookahead = get_angle_diff_lookahead(ideal_line, params, 1)
+	angle_diff_lookahead = get_angle_diff_lookahead(ideal_line, params, 2)
 	segment_type = 1
 	if (angle_diff_lookahead >= 5): # will enter a LEFT turn
 		segment_type = 2
 	elif (angle_diff_lookahead <= -5): # will enter a RIGHT turn
 		segment_type = 3
+
+	track_direction = compute_direction(next_point, prev_point)
 	
 	# --- Heading should be aligned with the track_direction
 	direction_diff = abs(track_direction - heading)
 	direction_diff = (direction_diff + 180.0) % 360.0 - 180.0
 	heading_factor = 1.0
 	if segment_type == 1:
-		heading_factor = max(1 - (direction_diff / 10), 0.0) ** 1.2
+		heading_factor = max(1 - (direction_diff / 10), 1e-3)
 	else:
-		heading_factor = max(1 - (direction_diff / 20), 0.0) ** 1.2
+		heading_factor = max(1 - (direction_diff / 20), 1e-3)
 	heading_factor *= 1.2
 	reward *= heading_factor
 	
@@ -176,22 +176,21 @@ def reward_function(params):
 		speed_factor = 1.0 - abs(speed - max_speed) / max_speed
 	else:
 		speed_factor = 0.1
-	speed_factor = max(speed_factor, 0.1)
-	reward *= max(speed_factor, 0.1) * 1.5
+	speed_factor = max(speed_factor, 1e-3)
+	reward *= speed_factor * 1.2
 
 	# --- Steering bonus ---
 	steering_factor = 1.0
 	if segment_type == 1:
-		steering_factor = max((1 - abs(steering) / 30.0), 0.1)
+		steering_factor = max((1 - abs(steering) / 10.0), 1e-3)
 	else:
 		wrong_turn = steering * angle_diff_lookahead
 		if wrong_turn < 0.0:
 			steering_factor = min(max((abs(steering) / 20.0), 0.2), 0.6)
-
 	reward *= steering_factor * 1.2
 
 	# --- Progress bonus ---
-	progress_factor = (1.0 + progress / steps)  # scales by efficiency
+	progress_factor = (progress / steps)  # scales by efficiency
 	reward += progress_factor
 
 	return float(reward)
