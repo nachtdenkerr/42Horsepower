@@ -1,0 +1,106 @@
+{
+  "model_name": "b8da9b0e-5109-4ae2-81f7-30483fc53ce5",
+  "world_name": "2024_reinvent_champ_ccw",
+  "race_type": "TIME_TRIAL",
+  "job_type": "TRAINING",
+  "hyper": {
+    "batch_size": 64,
+    "entropy": 0.01,
+    "discount_factor": 0.99,
+    "loss_type": "huber",
+    "learning_rate": 0.0003,
+    "episodes_per_training_iteration": 0,
+    "epochs": 5
+  },
+  "episode_stats": {
+    "episode_count": 208,
+    "iteration_count": 0,
+    "success_count": 0,
+    "average_percent_complete": 8.327632692307692,
+    "best_steps": 0,
+    "average_steps": 0,
+    "worst_steps": 0,
+    "best_time": 0.0,
+    "average_time": 0.0,
+    "worst_time": 0.0,
+    "best_distance": 0.0,
+    "average_distance": 0.0,
+    "worst_distance": 0.0,
+    "best_reward": 954.7959999999999,
+    "average_reward": 290.0417173076923,
+    "worst_reward": 62.706199999999995,
+    "training_minutes": 9
+  },
+  "action_space": [
+    {
+      "speed": 1.2,
+      "steering_angle": -25.0,
+      "index": 0
+    },
+    {
+      "speed": 1.5,
+      "steering_angle": -20.0,
+      "index": 1
+    },
+    {
+      "speed": 1.7,
+      "steering_angle": -15.0,
+      "index": 2
+    },
+    {
+      "speed": 2.0,
+      "steering_angle": -10.0,
+      "index": 3
+    },
+    {
+      "speed": 2.3,
+      "steering_angle": -5.0,
+      "index": 4
+    },
+    {
+      "speed": 2.7,
+      "steering_angle": -2.5,
+      "index": 5
+    },
+    {
+      "speed": 2.5,
+      "steering_angle": 0.0,
+      "index": 6
+    },
+    {
+      "speed": 3.0,
+      "steering_angle": 0.0,
+      "index": 7
+    },
+    {
+      "speed": 2.7,
+      "steering_angle": 2.5,
+      "index": 8
+    },
+    {
+      "speed": 2.3,
+      "steering_angle": 5.0,
+      "index": 9
+    },
+    {
+      "speed": 2.0,
+      "steering_angle": 10.0,
+      "index": 10
+    },
+    {
+      "speed": 1.7,
+      "steering_angle": 15.0,
+      "index": 11
+    },
+    {
+      "speed": 1.5,
+      "steering_angle": 20.0,
+      "index": 12
+    },
+    {
+      "speed": 1.2,
+      "steering_angle": 25.0,
+      "index": 13
+    }
+  ]
+}
