@@ -111,10 +111,10 @@ def	get_angle_diff_lookahead(ideal_line, params, n_lookahead):
 	closest_idx = params['closest_waypoints'][1]
 	ahead_idx = (closest_idx + n_lookahead) % len(params["waypoints"])
 
-	angle_ahead = compute_direction(ideal_line[ahead_idx], ideal_line(closest_idx))
+	angle_ahead = compute_direction(ideal_line[ahead_idx], ideal_line[closest_idx])
 	angle_ahead = (angle_ahead + 180.0) % 360.0 - 180.0
 
-	angle_adj = compute_direction(ideal_line[closest_idx + 1], ideal_line(closest_idx))
+	angle_adj = compute_direction(ideal_line[closest_idx + 1], ideal_line[closest_idx])
 	angle_adj = (angle_adj + 180.0) % 360.0 - 180.0
 	angle_diff = angle_ahead - angle_adj
 
@@ -155,7 +155,7 @@ def reward_function(params):
 	# --- Heading should be aligned with the track_direction
 	track_direction = compute_direction(next_point, prev_point)
 	direction_diff = abs(track_direction - heading)
-	direction_diff = (direction_diff + 180.0) % 360.0 - 180.0
+	#direction_diff = (direction_diff + 180.0) % 360.0 - 180.0
 	heading_factor = 1.0
 	if segment_type == 1:
 		heading_factor = max(1 - (direction_diff / 10), 1e-3)
