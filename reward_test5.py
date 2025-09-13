@@ -181,7 +181,7 @@ def reward_function(params):
 	else:
 		wrong_turn = steering * angle_diff_lookahead
 		if wrong_turn < 0.0:
-			steering_factor -= abs(steering) / 30.0
+			steering_factor -= min(abs(steering) / 20.0, 1.0)
 	reward *= steering_factor
 
 	# --- Progress bonus ---
