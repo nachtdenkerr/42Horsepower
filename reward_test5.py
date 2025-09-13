@@ -114,7 +114,8 @@ def	get_angle_diff_lookahead(ideal_line, params, n_lookahead):
 	angle_ahead = compute_direction(ideal_line[ahead_idx], ideal_line[closest_idx])
 	angle_ahead = (angle_ahead + 180.0) % 360.0 - 180.0
 
-	angle_adj = compute_direction(ideal_line[closest_idx + 1], ideal_line[closest_idx])
+	adj_idx = (closest_idx + 1) % len(params["waypoints"])
+	angle_adj = compute_direction(ideal_line[adj_idx], ideal_line[closest_idx])
 	angle_adj = (angle_adj + 180.0) % 360.0 - 180.0
 	angle_diff = angle_ahead - angle_adj
 
@@ -136,7 +137,7 @@ def reward_function(params):
 	if is_offtrack:
 		return 1e-3  # tiny reward if off track
 
-	reward = 1e-3
+	reward = 1
 	ideal_line = ideal_data[:, :2]
 	ideal_vel = ideal_data[:, 2]
 	prev_point = ideal_line[closest_waypoints[0]]
@@ -144,8 +145,7 @@ def reward_function(params):
 	# --- Distance from center factor (smooth penalty) ---
 	distance_from_ideal = get_distance_from_ideal_line(params['x'], params['y'], prev_point, next_point)
 	distance_factor = max(1e-3, 1 - 2 * distance_from_ideal / track_width)
-
-	reward += distance_factor
+	reward *= distance_factor
 
 	angle_diff_lookahead = get_angle_diff_lookahead(ideal_line, params, 2)
 	segment_type = 1
@@ -156,12 +156,12 @@ def reward_function(params):
 	track_direction = compute_direction(next_point, prev_point)
 	direction_diff = abs(track_direction - heading)
 	#direction_diff = (direction_diff + 180.0) % 360.0 - 180.0
-	heading_factor = 1.0
+	#heading_factor = 1.0
 	if segment_type == 1:
 		heading_factor = max(1 - (direction_diff / 10), 1e-3)
 	else:
 		heading_factor = max(1 - (direction_diff / 20), 1e-3)
-	reward += heading_factor
+	reward *= heading_factor
 
 	# --- Speed factor ---
 	speed_0 = ideal_vel[closest_waypoints[0]]
@@ -172,7 +172,7 @@ def reward_function(params):
 	else:
 		speed_factor = 0.1
 	speed_factor = max(speed_factor, 1e-3)
-	reward += speed_factor
+	reward *= speed_factor
 
 	# --- Steering bonus ---
 	steering_factor = 1.0
@@ -182,10 +182,10 @@ def reward_function(params):
 		wrong_turn = steering * angle_diff_lookahead
 		if wrong_turn < 0.0:
 			steering_factor -= abs(steering) / 30.0
-	reward += steering_factor
+	reward *= steering_factor
 
 	# --- Progress bonus ---
 	progress_factor = (progress / steps)  # scales by efficiency
-	reward += progress_factor
+	reward *= progress_factor
 
 	return float(reward)
