@@ -1,12 +1,12 @@
 import math
 import numpy as np
 
-ideal_data = np.array([[ 3.4882,  1.424 ,  2.1187],
-				[ 3.2859,  1.4498,  2.196 ],
-				[ 3.0778,  1.4676,  2.2593],
-				[ 2.8556,  1.4806,  2.3101],
-				[ 2.5985,  1.4918,  2.3499],
-				[ 2.3217,  1.5002,  2.3797],
+ideal_data = np.array([[ 3.4882,  1.424 ,  1.1187],
+				[ 3.2859,  1.4498,  1.196 ],
+				[ 3.0778,  1.4676,  1.3593],
+				[ 2.8556,  1.4806,  1.6101],
+				[ 2.5985,  1.4918,  1.9302],
+				[ 2.3217,  1.5002,  2.2797],
 				[ 2.0395,  1.5056,  2.4   ],
 				[ 1.7537,  1.5085,  2.4   ],
 				[ 1.4654,  1.5092,  2.4   ],
@@ -121,6 +121,11 @@ def	get_angle_diff_lookahead(ideal_line, params, n_lookahead):
 
 	return ((angle_diff + 180.0) % 360.0 - 180.0)
 
+def double_linear_fcn(diff, div, max_div):
+	if (diff / div) < 0.5:
+		return diff / div
+	return 0.5 + (diff - (0.5 * div)) / max_div
+	
 def reward_function(params):
 	# --- Read parameters ---
 	speed = params['speed']
@@ -128,7 +133,7 @@ def reward_function(params):
 	steering = params['steering_angle']
 	progress = params['progress']
 	steps = max(params['steps'], 1)  # avoid division by zero
-	#waypoints = params['waypoints']
+	waypoints = params['waypoints']
 	closest_waypoints = params['closest_waypoints']
 	track_width = params['track_width']
 	is_offtrack = params['is_offtrack']
@@ -144,7 +149,7 @@ def reward_function(params):
 	next_point = ideal_line[closest_waypoints[1]]
 	# --- Distance from center factor (smooth penalty) ---
 	distance_from_ideal = get_distance_from_ideal_line(params['x'], params['y'], prev_point, next_point)
-	distance_factor = max(1e-3, 1 - 2 * distance_from_ideal / track_width)
+	distance_factor = max(1e-3, 1 - 3 * distance_from_ideal / track_width)
 	reward *= distance_factor
 
 	angle_diff_lookahead = get_angle_diff_lookahead(ideal_line, params, 2)
@@ -158,9 +163,9 @@ def reward_function(params):
 	#direction_diff = (direction_diff + 180.0) % 360.0 - 180.0
 	#heading_factor = 1.0
 	if segment_type == 1:
-		heading_factor = max(1 - (direction_diff / 10), 1e-3)
+		heading_factor = max(1 - double_linear_fcn(direction_diff, 5, 45), 1e-3)
 	else:
-		heading_factor = max(1 - (direction_diff / 20), 1e-3)
+		heading_factor = max(1 - double_linear_fcn(direction_diff, 20, 45), 1e-3)
 	reward *= heading_factor
 
 	# --- Speed factor ---
@@ -168,7 +173,7 @@ def reward_function(params):
 	speed_1 = ideal_vel[closest_waypoints[1]]
 	max_speed = (speed_0 + speed_1) / 2
 	if max_speed > 1e-3:
-		speed_factor = 1.0 - abs(speed - max_speed) / max_speed
+		speed_factor = 1.0 - double_linear_fcn(abs(speed - max_speed), 1.5 * max_speed, 3 * max_speed)
 	else:
 		speed_factor = 0.1
 	speed_factor = max(speed_factor, 1e-3)
@@ -177,11 +182,7 @@ def reward_function(params):
 	# --- Steering bonus ---
 	steering_factor = 1.0
 	if segment_type == 1:
-		steering_factor = max(1 - abs(steering) / 10.0, 1e-3)
-	else:
-		wrong_turn = steering * angle_diff_lookahead
-		if wrong_turn < 0.0:
-			steering_factor -= min(abs(steering) / 20.0, 1.0)
+		steering_factor = max(1 - double_linear_fcn(abs(steering), 10, 30), 1e-3)
 	reward *= steering_factor
 
 	# --- Progress bonus ---
